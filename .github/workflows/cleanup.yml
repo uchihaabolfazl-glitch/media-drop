@@ -1,0 +1,18 @@
+name: cleanup
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  clean:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete releases older than 2h
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName,createdAt \
+          | jq -r '.[] | select((now - (.createdAt|fromdateiso8601)) > 7200) | .tagName' \
+          | while read -r t; do [ -n "$t" ] && gh release delete "$t" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag && echo "deleted $t"; done

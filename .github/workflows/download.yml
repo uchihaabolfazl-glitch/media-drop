@@ -1,0 +1,35 @@
+name: download
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "Video URL"
+        required: true
+      name:
+        description: "Output base name (no extension)"
+        required: false
+        default: "video"
+permissions:
+  contents: write
+jobs:
+  get:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Install yt-dlp
+        run: pip install -q -U yt-dlp
+      - name: Download
+        run: |
+          mkdir -p out
+          yt-dlp -f "bv*[height<=720]+ba/b[height<=720]/b" --merge-output-format mp4 \
+            -o "out/${{ inputs.name }}.%(ext)s" --no-playlist "${{ inputs.url }}"
+          ls -lh out
+      - name: Publish as a release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="v$(date +%s)"
+          f=$(ls out | head -1)
+          gh release create "$tag" "out/$f" --repo "$GITHUB_REPOSITORY" \
+            --title "$f" --notes "auto-delete in 2h" >/dev/null
+          echo "URL=https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))" "$f")"
